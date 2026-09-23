@@ -63,8 +63,8 @@ def _today() -> dt.date:
 # ------------------------------------------------------------------ the board
 @app.get("/", response_class=HTMLResponse)
 def results() -> str:
-    body = S.page()
-    return body.replace("<footer>", _nav() + "<footer>", 1)
+    body = S.page().replace("</style>", _CTA_CSS + "</style>", 1)
+    return body.replace('<div class="meta">', _cta() + '<div class="meta">', 1)
 
 
 @app.get("/health")
@@ -167,10 +167,25 @@ async def hub_live(request: Request, authorization: str | None = Header(None)) -
 
 
 # ------------------------------------------------------------------ html
-def _nav() -> str:
-    return ('<p class="cap" style="margin-top:2.4rem"><a href="/submit" '
-            'style="color:var(--red-lo);font-weight:700;text-decoration:none">Drop your call '
-            '&rarr;</a></p>')
+_CTA_CSS = """
+.cta{display:inline-flex;align-items:center;gap:12px;margin:0 0 1.6rem;padding:15px 24px;
+  background:var(--red);color:#fff;text-decoration:none;border-radius:12px;font-weight:800;
+  font-size:1.05rem;letter-spacing:-.01em;box-shadow:0 8px 22px rgba(220,38,38,.38);
+  transition:background .15s,transform .15s,box-shadow .15s}
+.cta:hover{background:var(--red-lo);transform:translateY(-2px);box-shadow:0 12px 28px rgba(220,38,38,.48)}
+.cta:active{transform:none}
+.cta small{font-size:.8rem;font-weight:600;color:rgba(255,255,255,.82)}
+.cta .arr{font-size:1.25rem;line-height:1;transition:transform .15s}
+.cta:hover .arr{transform:translateX(3px)}
+@media (max-width:560px){.cta{display:flex;justify-content:center;width:100%;box-sizing:border-box}}
+"""
+
+
+def _cta() -> str:
+    """The way in to the drop page, at the top of the board where nobody can miss it."""
+    tomorrow = _today() + dt.timedelta(days=1)
+    return (f'<a class="cta" href="/submit">Drop your call <small>for {tomorrow:%A %-d %b}</small>'
+            f'<span class="arr">&rarr;</span></a>\n  ')
 
 
 def _receipt(player: str, day: dt.date, c: dict) -> str:

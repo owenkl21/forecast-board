@@ -461,7 +461,7 @@ footer{margin-top:3rem;padding-top:1.3rem;border-top:1px solid var(--line);color
 <header class="hero"><div class="w">
   <div class="ribbon"><i></i><i></i><i></i></div>
   <h1>Forecast <span>Championship</span></h1>
-  <p class="dek">Four bots call tomorrow&rsquo;s cars at every branch. Every miss counts, over and under,
+  <p class="dek">Five bots call tomorrow&rsquo;s cars at every branch. Every miss counts, over and under,
   so a right network total with wrong branches underneath scores nothing. <b>Lower wins.</b></p>
   <div class="meta">
     <span class="live"><span class="dot"></span><b>__STATUS__</b></span>
