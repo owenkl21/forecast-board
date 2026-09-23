@@ -1038,12 +1038,15 @@ def build_state() -> dict:
     corrected count sits unscored behind a stale cache. The copy written to disk is for
     inspection only; nothing reads it back as truth."""
     days = {}
-    for f in (sorted(store.ACTUALS.glob("*.json")) if store.ACTUALS.exists() else []):
-        r = score_day(dt.date.fromisoformat(f.stem))
+    for d in store.actuals_days():
+        r = score_day(dt.date.fromisoformat(d))
         if r is not None:
-            days[f.stem] = r
+            days[d] = r
     state = {"days": days}
-    store.save_state(state)
+    try:
+        store.save_state(state)
+    except Exception as exc:  # noqa: BLE001 - an inspection copy must never take the board down
+        print(f"  could not save the inspection copy of the scores: {exc}", flush=True)
     return state
 
 
