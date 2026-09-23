@@ -64,7 +64,10 @@ def _today() -> dt.date:
 @app.get("/", response_class=HTMLResponse)
 def results() -> str:
     body = S.page().replace("</style>", _CTA_CSS + "</style>", 1)
-    return body.replace('<div class="meta">', _cta() + '<div class="meta">', 1)
+    body = body.replace('<div class="meta">', _cta() + '<div class="meta">', 1)
+    # the board was built to sit inside another page; served on its own, a phone has to be told
+    # to fit it to the screen or it shows a shrunk desktop page
+    return '<meta name="viewport" content="width=device-width,initial-scale=1">\n' + body
 
 
 @app.get("/health")
