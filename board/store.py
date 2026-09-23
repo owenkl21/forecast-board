@@ -20,6 +20,8 @@ Keys, identical in meaning across both backends:
     actuals               a hash, one field per closed day, the hub's bundle
     live                          the hub's running count for today
     state                         the scores, written only by the scoring step
+    stamp                         changes whenever a call, a closed day or the running count
+                                  lands; open pages poll it and reload
 """
 from __future__ import annotations
 
@@ -27,6 +29,7 @@ import datetime as dt
 import json
 import os
 import tempfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -118,6 +121,7 @@ def save_call(day: dt.date, player: str, csv_text: str) -> None:
         _r("HSET", f"calls:{day.isoformat()}", player, csv_text)
     else:
         _atomic_write(INBOX / day.isoformat() / f"{player}.csv", csv_text)
+    _bump()
 
 
 def call_paths(day: dt.date) -> dict[str, Path]:
@@ -147,6 +151,7 @@ def save_actuals(day: dt.date, bundle: dict) -> None:
         _r("HSET", "actuals", day.isoformat(), text)
     else:
         _atomic_write(ACTUALS / f"{day.isoformat()}.json", text)
+    _bump()
 
 
 def load_actuals(day: dt.date) -> dict | None:
@@ -182,6 +187,7 @@ def save_live(bundle: dict) -> None:
         _r("SET", "live", text)
     else:
         _atomic_write(LIVE, text)
+    _bump()
 
 
 def load_live() -> dict | None:
@@ -193,6 +199,29 @@ def _load_live() -> dict | None:
         t = _r("GET", "live")
         return json.loads(t) if t else None
     return json.loads(LIVE.read_text()) if LIVE.exists() else None
+
+
+def _bump() -> None:
+    """Mark the board as changed, so open pages reload within a minute instead of waiting for
+    their timed refresh. Only the three things the hub and the players send bump it, never the
+    scores' inspection copy: that is written on every page load and would set every open page
+    reloading every other one. A failure here never fails the save it follows; the worst case
+    is a page that catches up at its next timed refresh."""
+    stamp = str(time.time_ns())
+    try:
+        if BACKEND == "redis":
+            _r("SET", "stamp", stamp)
+        else:
+            _atomic_write(DATA / "stamp", stamp)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  could not mark the board as changed: {exc}", flush=True)
+
+
+def load_stamp() -> str:
+    if BACKEND == "redis":
+        return _r("GET", "stamp") or ""
+    p = DATA / "stamp"
+    return p.read_text() if p.exists() else ""
 
 
 def load_state() -> dict:

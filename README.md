@@ -19,6 +19,13 @@ shows the standings, day by day results and every branch side by side.
   returns anyone's raw call.
 - **PIN per player**, so nobody can overwrite someone else's file.
 
+## Staying current
+
+An open board checks `/stamp` once a minute while it is on screen, and reloads the moment a
+call, a scored day or the running count lands, and at midnight. A tab in the background does
+not check; it catches up as soon as you look at it. A 30 minute timed refresh stays as a
+fallback for a browser that will not run the script.
+
 ## Where the numbers come from
 
 The site never reads the live database and contains no forecasting model. A separate machine

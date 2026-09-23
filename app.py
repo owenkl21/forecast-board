@@ -63,11 +63,30 @@ def _today() -> dt.date:
 # ------------------------------------------------------------------ the board
 @app.get("/", response_class=HTMLResponse)
 def results() -> str:
+    # read the stamp before the data: a write landing mid-render can then only cause one extra
+    # reload, never a missed one
+    seen = _stamp()
     body = S.page().replace("</style>", _CTA_CSS + "</style>", 1)
     body = body.replace('<div class="meta">', _cta() + '<div class="meta">', 1)
+    # the page reloads itself the minute anything changes, so the timed refresh is only a fallback
+    # for a browser that will not run the script
+    body = body.replace('http-equiv="refresh" content="600"', 'http-equiv="refresh" content="1800"', 1)
     # the board was built to sit inside another page; served on its own, a phone has to be told
     # to fit it to the screen or it shows a shrunk desktop page
-    return '<meta name="viewport" content="width=device-width,initial-scale=1">\n' + body
+    return ('<meta name="viewport" content="width=device-width,initial-scale=1">\n' + body
+            + _WATCH.replace("__SEEN__", json.dumps(seen)))
+
+
+@app.get("/stamp")
+def stamp() -> JSONResponse:
+    """What an open board polls, once a minute, to know when to reload."""
+    return JSONResponse({"v": _stamp()}, headers={"Cache-Control": "no-store"})
+
+
+def _stamp() -> str:
+    # the date is part of it, so an open page also rolls over at midnight, when tomorrow's
+    # calls lock and the drop button moves on a day
+    return f"{store.load_stamp()}|{_today().isoformat()}"
 
 
 @app.get("/health")
@@ -181,6 +200,30 @@ _CTA_CSS = """
 .cta .arr{font-size:1.25rem;line-height:1;transition:transform .15s}
 .cta:hover .arr{transform:translateX(3px)}
 @media (max-width:560px){.cta{display:flex;justify-content:center;width:100%;box-sizing:border-box}}
+"""
+
+
+_WATCH = """
+<script>
+/* Reload as soon as something on the board changes: a call lands, a day is scored, or the
+   running count moves. Checks once a minute while the page is on screen and straight away when
+   you come back to it; a tab in the background does not check at all. */
+(() => {
+  const seen = __SEEN__;
+  let busy = false;
+  const check = async () => {
+    if (busy || document.visibilityState !== "visible") return;
+    busy = true;
+    try {
+      const r = await fetch("/stamp", {cache: "no-store"});
+      if (r.ok && (await r.json()).v !== seen) location.reload();
+    } catch (e) { /* offline for a moment; the next check catches up */ }
+    busy = false;
+  };
+  setInterval(check, 60000);
+  document.addEventListener("visibilitychange", check);
+})();
+</script>
 """
 
 

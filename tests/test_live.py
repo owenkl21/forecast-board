@@ -1,11 +1,13 @@
-"""End-to-end checks against a running local site. Run with the site up on :8000."""
+"""End-to-end checks against a running local site on disk storage. Run with the site up on
+:8000, or point BOARD_TEST_URL at another local port. Never at the hosted site: it drops a
+test call for tomorrow."""
 import json, os, re, sys, urllib.request, urllib.error, uuid, datetime as dt
 from pathlib import Path
 env = {}
 for ln in Path(".env").read_text().splitlines():
     k, _, v = ln.partition("="); env[k] = v.strip().strip("'")
 PINS = json.loads(env["BOARD_PINS"]); TOKEN = env["BOARD_HUB_TOKEN"]
-BASE = "http://127.0.0.1:8000"
+BASE = os.environ.get("BOARD_TEST_URL", "http://127.0.0.1:8000")
 SAST = dt.timezone(dt.timedelta(hours=2)); today = dt.datetime.now(SAST).date()
 tomorrow = today + dt.timedelta(days=1)
 CALL = Path("../forecast/comp/inbox/2026-09-22/Owen.csv").read_bytes()
@@ -72,6 +74,26 @@ for path in (f"/data/inbox/{tomorrow}/Owen.csv", f"/inbox/{tomorrow}/Owen.csv", 
              "/data/state.json", "/.env", "/docs", "/openapi.json"):
     s, _ = req("GET", path)
     check(f"nothing served at {path}", s in (404, 405), f"got {s}")
+
+print("\nOPEN PAGES RELOAD WHEN SOMETHING LANDS")
+stamp = lambda: json.loads(req("GET", "/stamp")[1])["v"]
+s, b = req("GET", "/stamp"); first = json.loads(b)["v"] if s == 200 else ""
+check("the stamp answers, and carries today's date", s == 200 and first.endswith(f"|{today}"), b[:120])
+s, b = req("GET", "/")
+check("the board carries the same stamp for its checker", json.dumps(first) in b and 'fetch("/stamp"' in b)
+check("the timed refresh is only a 30 minute fallback", 'content="1800"' in b and 'content="600"' not in b)
+body, h = multipart({"player":"Owen","pin":PINS["Owen"],"date":tomorrow.isoformat()}, "c.csv", CALL)
+req("POST", "/submit", body, h); after_drop = stamp()
+check("a dropped call changes the stamp", after_drop != first)
+live = Path("data/live.json")
+bundle = live.read_text() if live.exists() else json.dumps(
+    {"date": today.isoformat(), "at": "00:00", "branch_so_far": {}, "curve": {}})
+s, _ = req("POST", "/api/hub/live", bundle.encode(),
+           {"Content-Type": "application/json", "Authorization": f"Bearer {TOKEN}"})
+after_live = stamp()
+check("so does the hub's running count", s == 200 and after_live != after_drop)
+req("GET", "/")
+check("but loading the page does not, or open pages would reload each other", stamp() == after_live)
 
 print(f"\n{passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
