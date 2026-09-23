@@ -26,7 +26,7 @@ from pathlib import Path
 from fastapi import FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, JSONResponse
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from board import importers, scoring as S, store  # noqa: E402
 
 app = FastAPI(title="Forecast Championship", docs_url=None, redoc_url=None, openapi_url=None)

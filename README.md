@@ -46,13 +46,18 @@ Tests, with the site running:
 .venv/bin/python tests/test_live.py
 ```
 
+`test_live.py` drops a test call for tomorrow, so only ever run it against a local site on disk
+storage, never against the hosted one.
+
 ## Settings
 
 Set these in `.env` locally and in the Vercel project settings. **Never commit them.**
 
 - `BOARD_PINS` JSON of `{"Player": "pin"}`. Hand each person only their own.
 - `BOARD_HUB_TOKEN` long and random; the same value goes on the posting machine.
-- `BOARD_DATA` local folder for files. Ignored on Vercel.
+- `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` the hosted store. With both unset the
+  site keeps its files on disk instead.
+- `BOARD_DATA` the folder for those files, used only on disk storage.
 
 ## Adding a player
 
@@ -61,10 +66,12 @@ Add them to `config/players.json`. Someone who did not play round one gets
 so they can neither lead on one week alone nor be punished for arriving late. Then give them a
 PIN in `BOARD_PINS`.
 
-## Before deploying to Vercel
+## Hosting on Vercel
 
-**One piece is not done yet: hosted storage.** Locally every file is kept on disk. Vercel's
-disk is wiped between requests, so uploads would vanish. `board/store.py` is the only file
-that touches storage and was written to be swapped; it needs a Vercel Blob backend, which has
-to be built and tested against a real Vercel project and token. It is deliberately not shipped
-untested.
+- Framework preset **FastAPI**. Vercel finds the app in `app.py` and sends every address to it.
+  There is no `vercel.json`: a rewrite there changes the path the app sees and every page
+  answers "not found".
+- Storage is an **Upstash Redis** database on the free tier, which cannot charge. Not Vercel
+  Blob, because Blob serves every file from a public address and that would break the seal.
+  `board/store.py` is the only file that touches storage.
+- **Deployment Protection off**, or players hit a Vercel sign-in page instead of the board.
