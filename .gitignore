@@ -1,0 +1,9 @@
+# never commit these
+.env
+.env.*
+!.env.example
+data/
+.venv/
+__pycache__/
+*.pyc
+.vercel

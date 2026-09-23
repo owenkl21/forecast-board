@@ -1,0 +1,50 @@
+{
+  "_comment": [
+    "The competition roster. Add a player by adding an entry; nothing else needs editing.",
+    "round1 is their FINAL round-one score (11-17 Sep), from the official board.",
+    "A player who did not take part in round one gets round1: null. Give them",
+    "impute_round1: true and they carry the FIELD AVERAGE of everyone who did play it,",
+    "computed at load time so it can never drift. Owen's ruling, 21 Sep: a new player",
+    "scored on the week alone would win the championship off one week, which is not fair;",
+    "treating them as an average round-one performer is the defensible rule. The board",
+    "states it in plain language next to their name.",
+    "Leave impute_round1 off and they are scored on the week alone, marked as such.",
+    "detail is [fixed 20%, daily 80%, bias] exactly as the official board published it."
+  ],
+  "Tristan": {
+    "round1": 26.3,
+    "detail": [
+      30.2,
+      25.3,
+      5.7
+    ]
+  },
+  "William": {
+    "round1": 26.6,
+    "detail": [
+      27.2,
+      26.4,
+      -7.6
+    ]
+  },
+  "Ian": {
+    "round1": 28.1,
+    "detail": [
+      30.6,
+      27.5,
+      7.3
+    ]
+  },
+  "Owen": {
+    "round1": 28.9,
+    "detail": [
+      34.4,
+      27.5,
+      11.4
+    ]
+  },
+  "Brendan": {
+    "round1": null,
+    "impute_round1": true
+  }
+}

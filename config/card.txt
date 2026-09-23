@@ -1,0 +1,47 @@
+# The 46 branches in the competition. The two below are submitted but not scored.
+Bela Bela
+Brackenfell Hyper
+Bredasdorp
+Bree
+Burgundy
+Canterbury Crossing
+Cape Gate
+Chartwell
+Claremont
+Cobble Walk
+Dainfern
+De Drift
+Emporium
+Ferndale
+Glengarry
+Graanendal
+Grove
+Haasendal
+Heuwelsig
+Laborie
+Loch Logan
+Loftus
+Malmesbury
+Moreleta
+Newinbosch
+Newmarket
+Okavango
+Pinehurst
+Plattekloof
+Preller Square
+Preller Walk
+Robertson
+Seaside
+Steenberg
+Stoneridge
+Towers
+Tyger Valley
+Vergelegen
+Village Square
+Waterfront
+Welgemoed
+Whale Coast
+Willowbridge
+Winelands Square
+Worcester
+Zwartland
