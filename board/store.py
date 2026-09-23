@@ -16,8 +16,8 @@ in. A key-value store is private and a call is only a few kilobytes.
 
 Keys, identical in meaning across both backends:
 
-    call:<target-date>:<Player>   one per player per day, their latest call
-    actuals:<date>                the hub's bundle for a closed day
+    calls:<target-date>   a hash, one field per player, their latest call
+    actuals               a hash, one field per closed day, the hub's bundle
     live                          the hub's running count for today
     state                         the scores, written only by the scoring step
 """
@@ -93,44 +93,69 @@ def _keys(prefix: str) -> list[str]:
 _TMP = Path(tempfile.gettempdir()) / "board-calls"
 
 
+# One page render asks for the same day's calls and actuals several times over, once per
+# panel. Cache within a request so each is read once. Cleared at the start of every render,
+# so it can never serve yesterday's data to today's page.
+_CACHE: dict = {}
+
+
+def begin_request() -> None:
+    _CACHE.clear()
+
+
+def _cached(key, fn):
+    if key not in _CACHE:
+        _CACHE[key] = fn()
+    return _CACHE[key]
+
+
 # ================================================================== the interface
 def save_call(day: dt.date, player: str, csv_text: str) -> None:
+    _CACHE.pop(("calls", day.isoformat()), None)
     if BACKEND == "redis":
-        _r("SET", f"call:{day.isoformat()}:{player}", csv_text)
+        # one field per player in one hash per day: HSET is atomic, so two players dropping at
+        # the same instant can never overwrite each other
+        _r("HSET", f"calls:{day.isoformat()}", player, csv_text)
     else:
         _atomic_write(INBOX / day.isoformat() / f"{player}.csv", csv_text)
 
 
 def call_paths(day: dt.date) -> dict[str, Path]:
+    return _cached(("calls", day.isoformat()), lambda: _call_paths(day))
+
+
+def _call_paths(day: dt.date) -> dict[str, Path]:
     if BACKEND == "disk":
         folder = INBOX / day.isoformat()
         return {p.stem: p for p in sorted(folder.glob("*.csv"))} if folder.exists() else {}
-    prefix = f"call:{day.isoformat()}:"
-    out = {}
+    flat = _r("HGETALL", f"calls:{day.isoformat()}") or []
     folder = _TMP / day.isoformat()
-    for key in _keys(prefix):
-        text = _r("GET", key)
-        if text is None:
-            continue
-        player = key[len(prefix):]
+    out = {}
+    for player, text in zip(flat[0::2], flat[1::2]):
         p = folder / f"{player}.csv"
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(text)
         out[player] = p
-    return out
+    return dict(sorted(out.items()))
 
 
 def save_actuals(day: dt.date, bundle: dict) -> None:
     text = json.dumps(bundle, indent=2, sort_keys=True)
+    _CACHE.pop(("actuals", day.isoformat()), None)
+    _CACHE.pop(("actuals_days",), None)
     if BACKEND == "redis":
-        _r("SET", f"actuals:{day.isoformat()}", text)
+        _r("HSET", "actuals", day.isoformat(), text)
     else:
         _atomic_write(ACTUALS / f"{day.isoformat()}.json", text)
 
 
 def load_actuals(day: dt.date) -> dict | None:
+    return _cached(("actuals", day.isoformat()), lambda: _load_actuals(day))
+
+
+def _load_actuals(day: dt.date) -> dict | None:
     if BACKEND == "redis":
-        t = _r("GET", f"actuals:{day.isoformat()}")
+        t = _r("HGET", "actuals", day.isoformat())
         return json.loads(t) if t else None
     p = ACTUALS / f"{day.isoformat()}.json"
     return json.loads(p.read_text()) if p.exists() else None
@@ -138,9 +163,11 @@ def load_actuals(day: dt.date) -> dict | None:
 
 def actuals_days() -> list[str]:
     """Every date the hub has posted a closed day for, oldest first."""
-    if BACKEND == "redis":
-        return sorted(k.split(":", 1)[1] for k in _keys("actuals:"))
-    return sorted(p.stem for p in ACTUALS.glob("*.json")) if ACTUALS.exists() else []
+    def get():
+        if BACKEND == "redis":
+            return sorted(_r("HKEYS", "actuals") or [])
+        return sorted(p.stem for p in ACTUALS.glob("*.json")) if ACTUALS.exists() else []
+    return _cached(("actuals_days",), get)
 
 
 def latest_actuals() -> dict | None:
@@ -149,6 +176,7 @@ def latest_actuals() -> dict | None:
 
 
 def save_live(bundle: dict) -> None:
+    _CACHE.pop(("live",), None)
     text = json.dumps(bundle, indent=2, sort_keys=True)
     if BACKEND == "redis":
         _r("SET", "live", text)
@@ -157,6 +185,10 @@ def save_live(bundle: dict) -> None:
 
 
 def load_live() -> dict | None:
+    return _cached(("live",), _load_live)
+
+
+def _load_live() -> dict | None:
     if BACKEND == "redis":
         t = _r("GET", "live")
         return json.loads(t) if t else None

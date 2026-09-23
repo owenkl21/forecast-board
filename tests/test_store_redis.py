@@ -42,6 +42,7 @@ try:
     check("and their contents are intact", paths["Owen"].read_text() == csv)
 
     store.save_call(TEST_DAY, "Owen", csv.replace("55", "57"))
+    store.begin_request()
     check("a second drop replaces the first", "57" in store.call_paths(TEST_DAY)["Owen"].read_text())
 
     bundle = {"date": TEST_DAY.isoformat(), "branch_actual": {"Tyger Valley": 61}, "sizes": {}, "context": {}}
@@ -53,11 +54,15 @@ try:
     store.save_live({"date": "2099-01-01", "at": "10:00", "branch_so_far": {}, "curve": {}})
     check("the running count round-trips", store.load_live()["at"] == "10:00")
 finally:
-    for key in store._keys(f"call:{TEST_DAY.isoformat()}:") + [f"actuals:{TEST_DAY.isoformat()}"]:
-        store._r("DEL", key)
+    store._r("DEL", f"calls:{TEST_DAY.isoformat()}")
+    store._r("HDEL", "actuals", TEST_DAY.isoformat())
     for key, val in (("live", saved_live), ("state", saved_state)):
         store._r("SET", key, val) if val is not None else store._r("DEL", key)
-    left = store._keys(f"call:{TEST_DAY.isoformat()}:") + store._keys(f"actuals:{TEST_DAY.isoformat()}")
+    left = []
+    if store._r("EXISTS", f"calls:{TEST_DAY.isoformat()}"):
+        left.append(f"calls:{TEST_DAY.isoformat()}")
+    if store._r("HEXISTS", "actuals", TEST_DAY.isoformat()):
+        left.append("actuals field for the test day")
     check("every test key cleaned up", not left, left)
 
 print(f"\n{passed} passed, {failed} failed")

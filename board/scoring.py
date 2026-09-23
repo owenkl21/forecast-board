@@ -1131,6 +1131,7 @@ def _inbox_calls(day: dt.date) -> dict[str, dict[str, float]]:
 # ------------------------------------------------------------------ what the website calls
 def page() -> str:
     """The results page, built fresh from whatever is in the store right now."""
+    store.begin_request()
     state = build_state()
     return render(standings(state), state, live_today())
 
